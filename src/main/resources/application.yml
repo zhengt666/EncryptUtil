@@ -1,0 +1,5 @@
+
+encyptUtil:
+  encrypt:
+    key: ankon
+    strategy : AES
