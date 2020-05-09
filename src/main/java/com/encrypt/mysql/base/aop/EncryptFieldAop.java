@@ -100,18 +100,25 @@ public class EncryptFieldAop  {
             Method realMethod = clazz.getMethod(msig.getName(), msig.getParameterTypes());
 
             Object[] objs = null;
+            //不能排除数组有空值
             if (requestObjs.length > 0) {
                 //不操作原对象
                 objs = new Object[requestObjs.length];
-
+                //判断是否有参数需要转换，排除null值
+                boolean flag = false;
                 for (int i = 0; i < requestObjs.length; i++) {
-                    if (requestObjs[i] instanceof Wrapper) {
-                        objs = requestObjs;
-                        break;
+                    if (CmUtil.hv(requestObjs[i])) {
+                        flag = true;
+                        if (requestObjs[i] instanceof Wrapper) {
+                            objs = requestObjs;
+                            break;
+                        }
+                        objs[i] = changeObject(requestObjs[i]);
                     }
-                    objs[i] = changeObject(requestObjs[i]);
                 }
-                handleEncrypt(realMethod, objs);
+                if (flag) {
+                    handleEncrypt(realMethod, objs);
+                }
             }
 
             Object result = realMethod.invoke(target, objs);
