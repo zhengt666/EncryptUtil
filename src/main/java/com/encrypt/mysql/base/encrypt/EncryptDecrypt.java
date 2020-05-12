@@ -18,7 +18,7 @@ import java.util.*;
  */
 public class EncryptDecrypt {
 
-    private static EncrypyContext encrypyContext = new EncrypyContext();
+    private static EncrypyContext encrypyContext = EncrypyContext.getInstance();
 
     /**
      * 多field加密方法
