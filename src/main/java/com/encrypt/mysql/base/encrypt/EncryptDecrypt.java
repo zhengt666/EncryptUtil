@@ -30,16 +30,30 @@ public class EncryptDecrypt {
      * @throws IllegalAccessException
      */
 
-    public static <T> T encrypt(Field[] declaredFields, T parameterObject, String strategy) throws IllegalAccessException {
+    public static <T> T encrypt(Field[] declaredFields, T parameterObject, String strKey, String strategy) throws IllegalAccessException {
         for (Field field : declaredFields) {
             EncryptField annotation = field.getAnnotation(EncryptField.class);
             if (Objects.isNull(annotation)) {
                 continue;
             }
-            encrypt(field, parameterObject, annotation.value(), strategy);
+            encrypt(field, parameterObject, getAnnotationValue(strKey, annotation), strategy);
         }
         return parameterObject;
 
+    }
+
+    /**
+     * 选择加密盐，存在重置盐替换系统盐
+     *
+     * @param strKey
+     * @param annotation
+     * @return
+     */
+    private static String getAnnotationValue(String strKey, EncryptField annotation) {
+        if (CmUtil.hv(annotation.value())) {
+            return annotation.value();
+        }
+        return strKey;
     }
 
     /**
@@ -72,10 +86,10 @@ public class EncryptDecrypt {
      * @throws IllegalAccessException
      */
 
-    public static <T> T decrypt(T result, String stategy) throws IllegalAccessException {
+    public static <T> T decrypt(T result, String strKey, String stategy) throws IllegalAccessException {
         Class<?> parameterObjectClass = result.getClass();
         Field[] declaredFields = parameterObjectClass.getDeclaredFields();
-        decrypt(declaredFields, result, stategy);
+        decrypt(declaredFields, result, strKey, stategy);
         return result;
     }
 
@@ -86,13 +100,13 @@ public class EncryptDecrypt {
      * @param result
      * @throws IllegalAccessException
      */
-    public static void decrypt(Field[] declaredFields, Object result, String stategy) throws IllegalAccessException {
+    public static void decrypt(Field[] declaredFields, Object result, String strKey, String stategy) throws IllegalAccessException {
         for (Field field : declaredFields) {
             EncryptField annotation = field.getAnnotation(EncryptField.class);
             if (Objects.isNull(annotation)) {
                 continue;
             }
-            decrypt(field, result, annotation.value(), stategy);
+            decrypt(field, result, getAnnotationValue(strKey, annotation), stategy);
         }
     }
 
@@ -234,4 +248,5 @@ public class EncryptDecrypt {
         }
         return map;
     }
+
 }

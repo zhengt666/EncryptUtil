@@ -43,12 +43,13 @@ public class EncrypyContext {
 
     /**
      * 单例获取
+     *
      * @return
      */
-    public static EncrypyContext getInstance(){
-        if (ObjectUtils.isEmpty(encrypyContext)){
-            synchronized (EncrypyContext.class){
-                if (ObjectUtils.isEmpty(encrypyContext)){
+    public static EncrypyContext getInstance() {
+        if (ObjectUtils.isEmpty(encrypyContext)) {
+            synchronized (EncrypyContext.class) {
+                if (ObjectUtils.isEmpty(encrypyContext)) {
                     encrypyContext = new EncrypyContext();
                 }
             }

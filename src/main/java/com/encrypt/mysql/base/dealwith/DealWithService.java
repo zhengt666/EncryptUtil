@@ -1,23 +1,14 @@
-package com.encrypt.mysql.base.aop;
+package com.encrypt.mysql.base.dealwith;
 
-import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.encrypt.mysql.base.annotation.EncryptClass;
 import com.encrypt.mysql.base.annotation.EncryptField;
 import com.encrypt.mysql.base.annotation.EncryptMethod;
 import com.encrypt.mysql.base.encrypt.EncryptDecrypt;
 import com.encrypt.mysql.base.utils.CmUtil;
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.Signature;
-import org.aspectj.lang.annotation.Around;
-import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.annotation.Pointcut;
-import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.Ordered;
 import org.springframework.core.annotation.AnnotationUtils;
-import org.springframework.core.annotation.Order;
+import org.springframework.util.ObjectUtils;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;
@@ -27,135 +18,53 @@ import java.lang.reflect.Method;
 import java.util.*;
 
 /**
- * @Description: aop统一处理程序下dao文件夹下
+ * @Description: aop处理加解密
  * @Author: zhengt
- * @CreateDate: 2020/4/20 15:22
+ * @CreateDate: 2020/5/13 10:56
  * @UpdateUser: zhengt
- * @UpdateDate: 2020/4/20 15:22
+ * @UpdateDate: 2020/5/13 10:56
  * @UpdateRemark: 修改内容
  * @Version: 1.0
  */
-@Order(Ordered.HIGHEST_PRECEDENCE)
-@Aspect
-public class EncryptFieldAop  {
+public class DealWithService {
 
     /**
-     * 加解密盐值
+     * 单例
      */
-    @Value("${encyptUtil.encrypt.key}")
-    private String secretKey;
+    private static volatile DealWithService dealWithService;
 
     /**
-     * 加解密处理模式
+     * 还没有实例化过
      */
-    @Value("${encyptUtil.encrypt.strategy}")
-    private String strategy;
+    private static boolean flag = true;
 
     /**
-     * dao切面
+     * 构造
      */
-    @Pointcut("execution(public * *..*.dao..*.*(..))")
-    public void annotationPointCut() {
+    private DealWithService() {
+        synchronized (DealWithService.class) {
+            if (flag) {
+                flag = false;
+            } else {
+                throw new RuntimeException("不要试图通过反射破环单例");
+            }
+        }
     }
 
     /**
-     * 环绕处理
+     * 单例获取
      *
-     * @param joinPoint
      * @return
      */
-    @Around("annotationPointCut()")
-    public Object around(ProceedingJoinPoint joinPoint) {
-
-        Object responseObj = null;
-
-        try {
-            //获取dao参数
-            Object[] requestObjs = joinPoint.getArgs();
-            //通过切点获取当前运行得方法，为使节点得
-            Signature sig = joinPoint.getSignature();
-            MethodSignature msig = null;
-            if (!(sig instanceof MethodSignature)) {
-                throw new IllegalArgumentException("该注解只能用于方法");
-            }
-            msig = (MethodSignature) sig;
-            Object target = joinPoint.getTarget();
-
-            Class clazz = null;
-            Class[] classes = target.getClass().getInterfaces();
-            for (Class currentClass : classes) {
-                if (currentClass.getName().contains("dao")) {
-                    clazz = currentClass;
-                    break;
+    public static DealWithService getInstance() {
+        if (ObjectUtils.isEmpty(dealWithService)) {
+            synchronized (DealWithService.class) {
+                if (ObjectUtils.isEmpty(dealWithService)) {
+                    return new DealWithService();
                 }
             }
-            for (int i = 0; i < requestObjs.length; i++) {
-                if (requestObjs[i] instanceof Wrapper) {
-                    Method currentMethod = target.getClass().getMethod(msig.getName(), msig.getParameterTypes());
-                    responseObj = currentMethod.invoke(target, requestObjs);
-                    responseObj = handleDecrypt(responseObj, currentMethod);
-                    return responseObj;
-                }
-            }
-            Method realMethod = clazz.getMethod(msig.getName(), msig.getParameterTypes());
-
-            Object[] objs = null;
-            //不能排除数组有空值
-            if (requestObjs.length > 0) {
-                //不操作原对象
-                objs = new Object[requestObjs.length];
-                //判断是否有参数需要转换，排除null值
-                boolean flag = false;
-                for (int i = 0; i < requestObjs.length; i++) {
-                    if (CmUtil.hv(requestObjs[i])) {
-                        flag = true;
-                        if (requestObjs[i] instanceof Wrapper) {
-                            objs = requestObjs;
-                            break;
-                        }
-                        objs[i] = changeObject(requestObjs[i]);
-                    }
-                }
-                if (flag) {
-                    handleEncrypt(realMethod, objs);
-                }
-            }
-
-            Object result = realMethod.invoke(target, objs);
-
-            //如果是jpa保存，需要对元对象得id进行保存
-            if (clazz.getName().contains("repository")) {
-                if ("save".equals(realMethod.getName()) || "saveAll".equals(realMethod.getName())) {
-                    //id移转
-                    for (int i = 0; i < requestObjs.length; i++) {
-                        if (requestObjs[i] instanceof List) {
-                            //保存集合id
-                            List list = (List) requestObjs[i];
-                            List source = (List) objs[i];
-                            if (CmUtil.hv(list)) {
-                                for (int j = 0; j < list.size(); j++) {
-                                    setObjectId(source.get(j), list.get(j));
-                                }
-                            }
-                        } else {
-                            //保存id
-                            setObjectId(objs[i], requestObjs[i]);
-                        }
-                    }
-                }
-            }
-            //entityManagerFactory.unwrap(SessionFactory.class).getCurrentSession().flush();
-
-            //修改response
-            responseObj = changeObject(result);
-
-            responseObj = handleDecrypt(responseObj, realMethod);
-
-        } catch (Exception e) {
-            e.printStackTrace();
         }
-        return responseObj;
-
+        return dealWithService;
     }
 
     /**
@@ -192,7 +101,7 @@ public class EncryptFieldAop  {
      * @author zhengt
      * @date 2019/11/8 10:51
      */
-    private Object changeObject(Object result) throws Exception {
+    public Object changeObject(Object result) throws Exception {
         Object responseObj = null;
         if (CmUtil.hv(result)) {
             if (result instanceof Integer) {
@@ -201,7 +110,7 @@ public class EncryptFieldAop  {
                 responseObj = result;
             } else if (result instanceof String) {
                 responseObj = "" + result.toString();
-            } else  if (result instanceof List) {
+            } else if (result instanceof List) {
                 responseObj = new ArrayList<>();
                 List old = (List) result;
                 ((ArrayList) responseObj).addAll(old);
@@ -218,7 +127,7 @@ public class EncryptFieldAop  {
      *
      * @param method
      */
-    private Object[] handleEncrypt(Method method, Object[] o) throws IllegalAccessException {
+    public Object[] handleEncrypt(Method method, Object[] o, String secretKey, String strategy) throws IllegalAccessException {
         if (Objects.isNull(o)) {
             return null;
         }
@@ -250,7 +159,7 @@ public class EncryptFieldAop  {
             EncryptClass encryptDecryptClass = AnnotationUtils.findAnnotation(parameterObjectClass, EncryptClass.class);
             if (Objects.nonNull(encryptDecryptClass)) {
                 Field[] declaredFields = parameterObjectClass.getDeclaredFields();
-                final Object encrypt = EncryptDecrypt.encrypt(declaredFields, o[i], strategy);
+                final Object encrypt = EncryptDecrypt.encrypt(declaredFields, o[i], secretKey, strategy);
                 objs[i] = encrypt;
             } else {
                 objs[i] = o[i];
@@ -264,7 +173,7 @@ public class EncryptFieldAop  {
      *
      * @param responseObj
      */
-    private Object handleDecrypt(Object responseObj, Method method) throws IllegalAccessException {
+    public Object handleDecrypt(Object responseObj, Method method, String secretKey, String strategy) throws IllegalAccessException {
         if (Objects.isNull(responseObj)) {
             return null;
         }
@@ -280,14 +189,14 @@ public class EncryptFieldAop  {
         }
         if (responseObj instanceof ArrayList) {
             ArrayList resultList = (ArrayList) responseObj;
-            decryptToList(resultList);
+            decryptToList(resultList, secretKey, strategy);
         } else if (responseObj instanceof Page) {
             Page page = (Page) responseObj;
             List resultList = page.getRecords();
-            decryptToList(resultList);
+            decryptToList(resultList, secretKey, strategy);
         } else {
             if (needToDecrypt(responseObj)) {
-                EncryptDecrypt.decrypt(responseObj, strategy);
+                EncryptDecrypt.decrypt(responseObj, secretKey, strategy);
             }
         }
         return responseObj;
@@ -299,10 +208,10 @@ public class EncryptFieldAop  {
      * @param resultList
      * @throws IllegalAccessException
      */
-    private void decryptToList(List resultList) throws IllegalAccessException {
+    public void decryptToList(List resultList, String strKey, String strategy) throws IllegalAccessException {
         if (CmUtil.hv(resultList) && needToDecrypt(resultList.get(0))) {
             for (int i = 0; i < resultList.size(); i++) {
-                EncryptDecrypt.decrypt(resultList.get(i), strategy);
+                EncryptDecrypt.decrypt(resultList.get(i), strKey, strategy);
             }
         }
     }

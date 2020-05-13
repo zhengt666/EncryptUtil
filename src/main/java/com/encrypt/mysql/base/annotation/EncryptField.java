@@ -9,7 +9,7 @@ import java.lang.annotation.*;
  * 是否对字段加解密（包括map）
  */
 @Documented
-@Target({ElementType.FIELD,ElementType.PARAMETER})
+@Target({ElementType.FIELD, ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @Inherited
@@ -20,6 +20,6 @@ public @interface EncryptField {
      */
     String[] encrypts() default {};
 
-    String value() default "ankon";
+    String value() default "";
 
 }
